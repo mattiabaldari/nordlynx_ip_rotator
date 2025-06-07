@@ -1,10 +1,10 @@
 #!/usr/bin/with-contenv bash
 
 if [[ -z ${PUBLIC_KEY} || -z ${END_POINT} ]]; then
-  echo "[$(date -Iseconds)] Finding the best server..."
-  api_url="https://api.nordvpn.com/v1/servers/recommendations?filters"
+  echo "[$(date -Iseconds)] Selecting a random server..."
+  api_url="https://api.nordvpn.com/v1/servers?filters"
   technology_filter="\[servers_technologies\]\[identifier\]=wireguard_udp"
-  
+
   # Get the country code from the country name (if provided) and add it to the API URL as a filter
   if [[ -n ${COUNTRY_CODE} ]]; then
     country_id=$(curl --silent "https://api.nordvpn.com/v1/servers/countries" | jq --raw-output ".[] | select(.code == \"${COUNTRY_CODE}\") | [.name, .id] | \"\(.[1])\"")
@@ -16,19 +16,25 @@ if [[ -z ${PUBLIC_KEY} || -z ${END_POINT} ]]; then
     api_url="${api_url}${technology_filter}"
   fi
 
-  recommendations=$(curl --retry 3 -LsS "${api_url}&${QUERY}&limit=1")
-  server=$(jq -r '.[0] | del(.services, .technologies)' <<< "${recommendations}")
-  echo "[$(date -Iseconds)] Server: ${server}"
-  if [[ -z ${server} ]]; then
-    echo "[$(date -Iseconds)] Unable to select a server ¯\_(⊙︿⊙)_/¯"
+  # Fetch all servers with WireGuard support
+  servers=$(curl --retry 3 -LsS "${api_url}")
+  server_count=$(echo "$servers" | jq 'length')
+  if [[ "$server_count" -eq 0 ]]; then
+    echo "[$(date -Iseconds)] No servers found ¯\\_(⊙︿⊙)_/¯"
     sleep infinity
   fi
-#   echo "[$(date -Iseconds)] Using server: ${server}"
+  random_index=$(shuf -i 0-$(($server_count - 1)) -n 1)
+  server=$(echo "$servers" | jq ".[$random_index]")
+  echo "[$(date -Iseconds)] Random server: $(echo $server | jq -r .hostname)"
+  if [[ -z ${server} ]]; then
+    echo "[$(date -Iseconds)] Unable to select a server ¯\\_(⊙︿⊙)_/¯"
+    sleep infinity
+  fi
   if [[ -z ${PUBLIC_KEY} ]]; then
-    PUBLIC_KEY=$(jq -r '.[0].technologies[] | select( .identifier == "wireguard_udp" ) | .metadata[] | select( .name == "public_key" ) | .value' <<< "${recommendations}")
+    PUBLIC_KEY=$(echo "$server" | jq -r '.technologies[] | select( .identifier == "wireguard_udp" ) | .metadata[] | select( .name == "public_key" ) | .value')
   fi
   if [[ -z ${END_POINT} ]]; then
-    END_POINT=$(jq -r '.[0].hostname' <<< "${recommendations}"):51820
+    END_POINT=$(echo "$server" | jq -r '.hostname'):51820
   fi
 fi
 
@@ -56,7 +62,11 @@ EOF
 
 echo "[$(date -Iseconds)] Connecting..."
 wg-quick up wg0 
-echo "[$(date -Iseconds)] Connected! \(ᵔᵕᵔ)/"
+
+# Get external IP address with timeout and fallback
+EXTERNAL_IP=$(curl -s --max-time 5 https://api.ipify.org || curl -s --max-time 5 https://ifconfig.me || echo "unknown")
+echo "[$(date -Iseconds)] Connected! External IP: ${EXTERNAL_IP}"
+
 
 if [[ -n ${RECONNECT} ]]; then
   echo "[$(date -Iseconds)] Reconnecting in ${RECONNECT} seconds"
