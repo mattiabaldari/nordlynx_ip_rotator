@@ -1,0 +1,17 @@
+services:
+  vpn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vpn
+    cap_add:
+      - NET_ADMIN #required
+    environment:
+      - PRIVATE_KEY_FILE=/run/secrets/privatekey
+    secrets:
+      - privatekey
+    restart: unless-stopped
+
+secrets:
+  privatekey:
+    file: nordvpn_private_key.txt

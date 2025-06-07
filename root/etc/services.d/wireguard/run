@@ -65,7 +65,7 @@ wg-quick up wg0
 
 # Get external IP address with timeout and fallback
 EXTERNAL_IP=$(curl -s --max-time 5 https://api.ipify.org || curl -s --max-time 5 https://ifconfig.me || echo "unknown")
-echo "[$(date -Iseconds)] Connected! External IP: ${EXTERNAL_IP} \(ᵔᵕᵔ)/"
+echo "[$(date -Iseconds)] Connected! External IP: ${EXTERNAL_IP}"
 
 
 if [[ -n ${RECONNECT} ]]; then

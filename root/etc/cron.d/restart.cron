@@ -1,0 +1,2 @@
+*/6 * * * * root /bin/sh /root/restart_wireguard.sh
+@reboot  root  sleep 60 && /bin/sh /root/restart_wireguard.sh
