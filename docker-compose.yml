@@ -11,6 +11,10 @@ services:
     secrets:
       - privatekey
     restart: unless-stopped
+    dns:
+      - 103.86.96.100
+      - 103.86.99.100
+      - 1.1.1.1
 
 secrets:
   privatekey:
